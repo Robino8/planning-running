@@ -1,30 +1,47 @@
 calendar_mod = __import__("calendar")
 from datetime import datetime
 import json
+import os
 import pandas as pd
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import os
 
-FICHIER_SAUVEGARDE = "planning.json"
-
-# Configuration de la page
+# Configuration de la page en mode 'wide' pour profiter de toute la largeur
 st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-st.title("🏃‍♂️ Mon Planning d'Entraînement (Cloud ☁️)")
+# --- STYLE CSS POUR UN CALENDRIER ULTRA-COMPACT ET SANS SCROLL ---
+st.markdown(
+    """
+    <style>
+    /* Réduction des marges globales de la page Streamlit pour grappiller de l'espace */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+    /* Boutons du calendrier réduits pour tenir sur un seul écran */
+    div.stButton > button {
+        border-radius: 6px;
+        font-weight: 500;
+        border: 1px solid rgba(0,0,0,0.15);
+        height: 52px !important;
+        padding: 0px !important;
+        font-size: 11px !important;
+        line-height: 1.1 !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-# --- CONNEXION GOOGLE SHEETS ---
-# Établissement de la connexion
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-import os
+st.title("🏃‍♂️ Mon Planning d'Entraînement")
 
 FICHIER_SAUVEGARDE = "planning.json"
 
 
-# Fonction pour charger les séances depuis le fichier cloud
+# --- GESTION DES DONNÉES (JSON CLOUD) ---
 def charger_seances():
   if os.path.exists(FICHIER_SAUVEGARDE):
     try:
@@ -41,7 +58,6 @@ def charger_seances():
   return {}
 
 
-# Fonction pour sauvegarder les séances dans le fichier cloud
 def sauvegarder_seances(seances_dict):
   data_brute = {}
   for (an, mo, j), seance_data in seances_dict.items():
@@ -58,12 +74,11 @@ if "annee" not in st.session_state:
 if "mois" not in st.session_state:
   st.session_state.mois = datetime.now().month
 
-# On charge les séances depuis Google Sheets au démarrage ou rafraîchissement
 if "seances" not in st.session_state:
   st.session_state.seances = charger_seances()
 
 if "jour_selectionne" not in st.session_state:
-  st.session_state.jour_selectionne = 1
+  st.session_state.jour_selectionne = datetime.now().day
 if "mode_edition" not in st.session_state:
   st.session_state.mode_edition = False
 
@@ -113,14 +128,14 @@ def mois_suivant():
   st.session_state.mode_edition = False
 
 
-# --- BARRE LATÉRALE ---
+# --- BARRE LATÉRALE (NAVIGATION) ---
 st.sidebar.header("Navigation")
-col1, col2 = st.sidebar.columns(2)
-with col1:
+col_nav1, col_nav2 = st.sidebar.columns(2)
+with col_nav1:
   if st.button("◀ Précéd", use_container_width=True):
     mois_precedent()
     st.rerun()
-with col2:
+with col_nav2:
   if st.button("Suivant ▶", use_container_width=True):
     mois_suivant()
     st.rerun()
@@ -142,37 +157,37 @@ st.session_state.annee = st.sidebar.number_input(
     step=1,
 )
 
-# Bouton optionnel pour forcer le rechargement depuis Google Sheets
-if st.sidebar.button("🔄 Actualiser les données"):
-  st.session_state.seances = charger_seances()
-  st.rerun()
+
+# --- MISE EN PAGE PRINCIPALE EN 2 COLONNES (SPLIT-SCREEN) ---
+# Colonne de gauche : Calendrier (60%) | Colonne de droite : Formulaire (40%)
+col_gauche, col_droite = st.columns([1.3, 1])
 
 
-# --- CALENDRIER INTERACTIF ---
-mois_nom_courant = mois_noms[st.session_state.mois]
-st.subheader(f"Planning de {mois_nom_courant} {st.session_state.annee}")
-st.info(
-    "💡 Clique sur un jour ci-dessous pour voir ou modifier sa séance."
-    " Synchronisé en direct avec le Cloud ☁️"
-)
+# ==========================================
+# COLONNE GAUCHE : LE CALENDRIER COMPACT
+# ==========================================
+with col_gauche:
+  mois_nom_courant = mois_noms[st.session_state.mois]
+  st.subheader(f"📅 {mois_nom_courant} {st.session_state.annee}")
 
-cal = calendar_mod.Calendar(firstweekday=0)
-mois_cal = cal.monthdayscalendar(st.session_state.annee, st.session_state.mois)
+  cal = calendar_mod.Calendar(firstweekday=0)
+  mois_cal = cal.monthdatescalendar(st.session_state.annee, st.session_state.mois)
 
-jours_semaine = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+  jours_semaine = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
 
-cols_entetes = st.columns(7)
-for i, j_nom in enumerate(jours_semaine):
-  cols_entetes[i].markdown(f"**{j_nom}**")
+  cols_entetes = st.columns(7)
+  for i, j_nom in enumerate(jours_semaine):
+    cols_entetes[i].markdown(f"<div style='text-align: center;'><b>{j_nom}</b></div>", unsafe_allow_html=True)
 
-for semaine in mois_cal:
-  cols_semaine = st.columns(7)
-  for i, jour in enumerate(semaine):
-    with cols_semaine[i]:
-      if jour == 0:
-        st.markdown("")
-      else:
-        cle = (st.session_state.annee, st.session_state.mois, jour)
+  for semaine in mois_cal:
+    cols_semaine = st.columns(7)
+    for i, date_jour in enumerate(semaine):
+      with cols_semaine[i]:
+        j_an, j_mo, j_jour = date_jour.year, date_jour.month, date_jour.day
+        est_mois_courant = j_mo == st.session_state.mois
+        cle = (j_an, j_mo, j_jour)
+        opacite = "1.0" if est_mois_courant else "0.3"
+
         if cle in st.session_state.seances:
           s_type = st.session_state.seances[cle]["type"]
           icone = (
@@ -188,137 +203,133 @@ for semaine in mois_cal:
                   )
               )
           )
-          if s_type == "Course" and st.session_state.seances[cle]["details"].get(
-              "nom_course"
-          ):
+          if s_type == "Course" and st.session_state.seances[cle]["details"].get("nom_course"):
             nom_c = st.session_state.seances[cle]["details"]["nom_course"]
-            label_btn = f"J{jour} : {nom_c}"
+            label_btn = f"J{j_jour}\n{icone} {nom_c[:6]}"
           else:
-            label_btn = f"J{jour} : {s_type}"
+            label_btn = f"J{j_jour}\n{icone} {s_type[:4]}"
           bg_color = couleurs_pastel.get(s_type, "#FFFFFF")
         else:
-          label_btn = f"J{jour} (-)"
-          bg_color = "#FFFFFF"
+          label_btn = f"J{j_jour}\n(-)"
+          bg_color = "#FFFFFF" if est_mois_courant else "#F5F5F5"
 
         st.markdown(
             f"""
-            <div style="background-color: {bg_color}; padding: 4px; border-radius: 6px; border: 1px solid #ddd; text-align: center; margin-bottom: -15px;">
+            <div style="background-color: {bg_color}; opacity: {opacite}; padding: 1px; border-radius: 4px; border: 1px solid #ddd; text-align: center; margin-bottom: -15px;">
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        if st.button(label_btn, key=f"btn_j_{jour}", use_container_width=True):
-          st.session_state.jour_selectionne = jour
+        if st.button(label_btn, key=f"btn_date_{j_an}_{j_mo}_{j_jour}", use_container_width=True):
+          st.session_state.annee = j_an
+          st.session_state.mois = j_mo
+          st.session_state.jour_selectionne = j_jour
           st.session_state.mode_edition = False
           st.rerun()
 
-# Légende
-st.markdown("---")
-cols_leg = st.columns(6)
-idx = 0
-for s_type, col in couleurs_pastel.items():
-  cols_leg[idx].markdown(
-      f"<div style='background-color: {col}; padding: 5px; border-radius: 4px;"
-      f" text-align: center; border: 1px solid #ccc; font-weight: 500;"
-      f" font-size: 13px;'>{s_type}</div>",
-      unsafe_allow_html=True,
-  )
-  idx += 1
-
-
-# --- FORMULAIRE / GESTION DU JOUR SÉLECTIONNÉ ---
-st.markdown("---")
-jour_sel = st.session_state.jour_selectionne
-cle_actuelle = (st.session_state.annee, st.session_state.mois, jour_sel)
-
-existe_deja = cle_actuelle in st.session_state.seances
-seance_actuelle = st.session_state.seances.get(cle_actuelle, None)
-
-st.subheader(f"📅 Détails pour le {jour_sel} {mois_nom_courant}")
-
-if existe_deja and not st.session_state.mode_edition:
-  s_type = seance_actuelle["type"]
-  details = seance_actuelle["details"]
-
-  st.markdown(f"### Type de séance : **{s_type}**")
-
-  if s_type == "Footing":
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Distance", f"{details.get('distance', 0)} km")
-    col2.metric("Durée estimée", f"{details.get('duree', 0)} min")
-    col3.metric("Allure cible", f"{details.get('allure', '-')}")
-    if details.get("commentaire"):
-      st.info(f"💬 Commentaire : {details.get('commentaire')}")
-
-  elif s_type == "Sortie longue":
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Distance", f"{details.get('distance', 0)} km")
-    col2.metric("Durée", f"{details.get('duree', 0)} min")
-    col3.metric("Dénivelé", f"{details.get('denivele', 0)} m D+")
-    if details.get("commentaire"):
-      st.info(f"💬 Commentaire / Bloc : {details.get('commentaire')}")
-
-  elif s_type == "Course":
-    st.markdown(f"### 🏁 **{details.get('nom_course', 'Course')}**")
-    col1, col2 = st.columns(2)
-    col1.metric("Distance", f"{details.get('distance', 0)} km")
-    col2.metric("Dénivelé", f"{details.get('denivele', 0)} m D+")
-    if details.get("commentaire"):
-      st.info(f"💬 Objectif / Remarque : {details.get('commentaire')}")
-
-  elif s_type == "VMA":
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Échauffement", f"{details.get('echauffement', 0)} min")
-    col2.metric("Blocs / Séries", f"{details.get('series', '-')}")
-    col3.metric("Format effort", f"{details.get('effort', '-')}")
-
-    col4, col5 = st.columns(2)
-    col4.metric("Allure cible", f"{details.get('allure', '-')}")
-    col5.metric("Récupération", f"{details.get('recup', '-')}")
-
-  elif s_type == "Seuil":
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Échauffement", f"{details.get('echauffement', 0)} min")
-    col2.metric("Nb de blocs", f"{details.get('blocs_nb', 0)}")
-    col3.metric("Format bloc", f"{details.get('blocs_duree', '-')}")
-
-    col4, col5 = st.columns(2)
-    col4.metric("Allure seuil", f"{details.get('allure', '-')}")
-    col5.metric("Récupération", f"{details.get('recup', '-')}")
-
-  else:
-    st.info("Jour de repos complet 🛋️")
-
+  # Légende compacte en dessous du calendrier
   st.markdown("")
-  col_act1, col_act2 = st.columns(2)
-  with col_act1:
-    if st.button("✏️ Modifier cette séance", use_container_width=True):
-      st.session_state.mode_edition = True
-      st.rerun()
-  with col_act2:
-    if st.button("🗑️ Supprimer cette séance", use_container_width=True):
-      del st.session_state.seances[cle_actuelle]
-      sauvegarder_seances(st.session_state.seances)
-      st.warning(f"Séance du {jour_sel} {mois_nom_courant} supprimée.")
-      st.rerun()
-
-else:
-  if not existe_deja:
-    st.info(
-        f"Aucune séance enregistrée le {jour_sel} {mois_nom_courant}. Remplis"
-        " les champs ci-dessous pour en créer une."
+  cols_leg = st.columns(6)
+  legende_items = [
+      ("Footing", "#E1F5FE"),
+      ("Sortie L.", "#FFE0B2"),
+      ("Course", "#FFEBEE"),
+      ("VMA", "#F3E5F5"),
+      ("Seuil", "#E8F5E9"),
+      ("Repos", "#F5F5F5"),
+  ]
+  for idx, (s_type, col) in enumerate(legende_items):
+    cols_leg[idx].markdown(
+        f"<div style='background-color: {col}; padding: 2px; border-radius: 3px;"
+        f" text-align: center; border: 1px solid #ccc; font-size: 9px; font-weight: 500;'>{s_type}</div>",
+        unsafe_allow_html=True,
     )
-  else:
-    st.warning("Mode modification en cours...")
 
-  seance_existante = (
-      seance_actuelle if existe_deja else {"type": "Footing", "details": {}}
+
+# ==========================================
+# COLONNE DROITE : FORMULAIRE DE SÉANCE
+# ==========================================
+with col_droite:
+  jour_sel = st.session_state.jour_selectionne
+  cle_actuelle = (st.session_state.annee, st.session_state.mois, jour_sel)
+
+  existe_deja = cle_actuelle in st.session_state.seances
+  seance_actuelle = st.session_state.seances.get(cle_actuelle, None)
+
+  st.subheader(
+      f"✍️ Séance du {jour_sel} {mois_noms[st.session_state.mois]}"
   )
 
-  col_s1, col_s2 = st.columns([1, 2])
+  if existe_deja and not st.session_state.mode_edition:
+    s_type = seance_actuelle["type"]
+    details = seance_actuelle["details"]
 
-  with col_s1:
+    st.markdown(f"**Type : {s_type}**")
+
+    if s_type == "Footing":
+      c1, c2, c3 = st.columns(3)
+      c1.metric("Dist.", f"{details.get('distance', 0)} km")
+      c2.metric("Durée", f"{details.get('duree', 0)} min")
+      c3.metric("Allure", f"{details.get('allure', '-')}")
+      if details.get("commentaire"):
+        st.info(f"💬 {details.get('commentaire')}")
+
+    elif s_type == "Sortie longue":
+      c1, c2, c3 = st.columns(3)
+      c1.metric("Dist.", f"{details.get('distance', 0)} km")
+      c2.metric("Durée", f"{details.get('duree', 0)} min")
+      c3.metric("D+ ", f"{details.get('denivele', 0)} m")
+      if details.get("commentaire"):
+        st.info(f"💬 {details.get('commentaire')}")
+
+    elif s_type == "Course":
+      st.markdown(f"🏁 **{details.get('nom_course', 'Course')}**")
+      c1, c2 = st.columns(2)
+      c1.metric("Dist.", f"{details.get('distance', 0)} km")
+      c2.metric("D+ ", f"{details.get('denivele', 0)} m")
+      if details.get("commentaire"):
+        st.info(f"💬 {details.get('commentaire')}")
+
+    elif s_type == "VMA":
+      c1, c2, c3 = st.columns(3)
+      c1.metric("Échau.", f"{details.get('echauffement', 0)}m")
+      c2.metric("Séries", f"{details.get('series', '-')}")
+      c3.metric("Effort", f"{details.get('effort', '-')}")
+      c4, c5 = st.columns(2)
+      c4.metric("Allure", f"{details.get('allure', '-')}")
+      c5.metric("Récup", f"{details.get('recup', '-')}")
+
+    elif s_type == "Seuil":
+      c1, c2, c3 = st.columns(3)
+      c1.metric("Échau.", f"{details.get('echauffement', 0)}m")
+      c2.metric("Blocs", f"{details.get('blocs_nb', 0)}")
+      c3.metric("Format", f"{details.get('blocs_duree', '-')}")
+      c4, c5 = st.columns(2)
+      c4.metric("Allure", f"{details.get('allure', '-')}")
+      c5.metric("Récup", f"{details.get('recup', '-')}")
+
+    else:
+      st.info("Jour de repos complet 🛋️")
+
+    st.markdown("")
+    col_act1, col_act2 = st.columns(2)
+    with col_act1:
+      if st.button("✏️ Modifier", use_container_width=True):
+        st.session_state.mode_edition = True
+        st.rerun()
+    with col_act2:
+      if st.button("🗑️ Supprimer", use_container_width=True):
+        del st.session_state.seances[cle_actuelle]
+        sauvegarder_seances(st.session_state.seances)
+        st.warning("Supprimée.")
+        st.rerun()
+
+  else:
+    seance_existante = (
+        seance_actuelle if existe_deja else {"type": "Footing", "details": {}}
+    )
+
     types_seances = [
         "Footing",
         "Sortie longue",
@@ -336,14 +347,13 @@ else:
         "Type de séance", types_seances, index=type_index, key="select_type_seance"
     )
 
-  with col_s2:
     details = {}
 
     if type_seance == "Footing":
       col_d1, col_d2, col_d3 = st.columns(3)
       with col_d1:
         details["distance"] = st.number_input(
-            "Distance (km)",
+            "Dist. (km)",
             min_value=0.0,
             value=float(seance_existante["details"].get("distance", 10.0)),
             step=0.5,
@@ -351,7 +361,7 @@ else:
         )
       with col_d2:
         details["duree"] = st.number_input(
-            "Durée estimée (min)",
+            "Durée (min)",
             min_value=0,
             value=int(seance_existante["details"].get("duree", 50)),
             step=1,
@@ -359,7 +369,7 @@ else:
         )
       with col_d3:
         details["allure"] = st.text_input(
-            "Allure cible (ex: 5:15)",
+            "Allure",
             value=seance_existante["details"].get("allure", "5:15"),
             key="f_allure",
         )
@@ -373,7 +383,7 @@ else:
       col_d1, col_d2, col_d3 = st.columns(3)
       with col_d1:
         details["distance"] = st.number_input(
-            "Distance (km)",
+            "Dist. (km)",
             min_value=0.0,
             value=float(seance_existante["details"].get("distance", 18.0)),
             step=0.5,
@@ -389,28 +399,28 @@ else:
         )
       with col_d3:
         details["denivele"] = st.number_input(
-            "Dénivelé D+ (m)",
+            "D+ (m)",
             min_value=0,
             value=int(seance_existante["details"].get("denivele", 200)),
             step=10,
             key="sl_den",
         )
       details["commentaire"] = st.text_input(
-          "Commentaire / Bloc spécifique",
+          "Commentaire",
           value=seance_existante["details"].get("commentaire", ""),
           key="sl_comm",
       )
 
     elif type_seance == "Course":
       details["nom_course"] = st.text_input(
-          "Nom de la course (ex: Semi de Paris)",
-          value=seance_existante["details"].get("nom_course", "10km de la ville"),
+          "Nom",
+          value=seance_existante["details"].get("nom_course", "10km"),
           key="c_nom",
       )
       col_d1, col_d2 = st.columns(2)
       with col_d1:
         details["distance"] = st.number_input(
-            "Distance (km)",
+            "Dist. (km)",
             min_value=0.0,
             value=float(seance_existante["details"].get("distance", 10.0)),
             step=0.5,
@@ -418,23 +428,23 @@ else:
         )
       with col_d2:
         details["denivele"] = st.number_input(
-            "Dénivelé D+ (m)",
+            "D+ (m)",
             min_value=0,
             value=int(seance_existante["details"].get("denivele", 100)),
             step=10,
             key="c_den",
         )
       details["commentaire"] = st.text_input(
-          "Objectif / Remarque",
+          "Objectif",
           value=seance_existante["details"].get("commentaire", ""),
           key="c_comm",
       )
 
     elif type_seance == "VMA":
-      col_d1, col_d2, col_d3 = st.columns(3)
+      col_d1, col_d2 = st.columns(2)
       with col_d1:
         details["echauffement"] = st.number_input(
-            "Échauffement (min)",
+            "Échauff. (min)",
             min_value=0,
             value=int(seance_existante["details"].get("echauffement", 20)),
             step=5,
@@ -442,36 +452,34 @@ else:
         )
       with col_d2:
         details["series"] = st.text_input(
-            "Blocs / Séries (ex: 2 x 8)",
+            "Séries",
             value=seance_existante["details"].get("series", "2 x 8"),
             key="vma_ser",
         )
+      col_d3, col_d4 = st.columns(2)
       with col_d3:
         details["effort"] = st.text_input(
-            "Format effort (ex: 400m)",
+            "Effort",
             value=seance_existante["details"].get("effort", "400m"),
             key="vma_eff",
         )
-
-      col_d4, col_d5 = st.columns(2)
       with col_d4:
         details["allure"] = st.text_input(
-            "Allure / Vitesse cible",
-            value=seance_existante["details"].get("allure", "3:45 /km"),
+            "Allure",
+            value=seance_existante["details"].get("allure", "3:45"),
             key="vma_all",
         )
-      with col_d5:
-        details["recup"] = st.text_input(
-            "Récupération",
-            value=seance_existante["details"].get("recup", "1 min trot"),
-            key="vma_rec",
-        )
+      details["recup"] = st.text_input(
+          "Récup",
+          value=seance_existante["details"].get("recup", "1 min"),
+          key="vma_rec",
+      )
 
     elif type_seance == "Seuil":
-      col_d1, col_d2, col_d3 = st.columns(3)
+      col_d1, col_d2 = st.columns(2)
       with col_d1:
         details["echauffement"] = st.number_input(
-            "Échauffement (min)",
+            "Échauff. (min)",
             min_value=0,
             value=int(seance_existante["details"].get("echauffement", 20)),
             step=5,
@@ -479,49 +487,45 @@ else:
         )
       with col_d2:
         details["blocs_nb"] = st.number_input(
-            "Nombre de blocs",
+            "Nb blocs",
             min_value=1,
             value=int(seance_existante["details"].get("blocs_nb", 3)),
             step=1,
             key="seu_nb",
         )
+      col_d3, col_d4 = st.columns(2)
       with col_d3:
         details["blocs_duree"] = st.text_input(
-            "Durée/Distance par bloc",
+            "Format bloc",
             value=seance_existante["details"].get("blocs_duree", "8 min"),
             key="seu_dur",
         )
-
-      col_d4, col_d5 = st.columns(2)
       with col_d4:
         details["allure"] = st.text_input(
-            "Allure seuil cible",
-            value=seance_existante["details"].get("allure", "4:15 /km"),
+            "Allure",
+            value=seance_existante["details"].get("allure", "4:15"),
             key="seu_all",
         )
-      with col_d5:
-        details["recup"] = st.text_input(
-            "Récupération entre blocs",
-            value=seance_existante["details"].get("recup", "2 min trot"),
-            key="seu_rec",
-        )
+      details["recup"] = st.text_input(
+          "Récup",
+          value=seance_existante["details"].get("recup", "2 min"),
+          key="seu_rec",
+      )
 
     else:
-      st.info("Jour de repos complet.")
+      st.info("Repos complet.")
 
+    st.markdown("")
     col_b1, col_b2 = st.columns(2)
     with col_b1:
-      if st.button(
-          "💾 Enregistrer la séance", type="primary", use_container_width=True
-      ):
+      if st.button("💾 Enregistrer", type="primary", use_container_width=True):
         st.session_state.seances[cle_actuelle] = {
             "type": type_seance,
             "details": details,
         }
-        # ENREGISTREMENT DANS GOOGLE SHEETS
         sauvegarder_seances(st.session_state.seances)
         st.session_state.mode_edition = False
-        st.success(f"Séance du {jour_sel} {mois_nom_courant} enregistrée !")
+        st.success("Enregistré !")
         st.rerun()
 
     with col_b2:
@@ -531,11 +535,10 @@ else:
           st.rerun()
 
 
-# --- SECTION : SYNTHÈSES ---
+# ==========================================
+# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE
+# ==========================================
 st.markdown("---")
-st.subheader(
-    f"📊 Synthèse et Statistiques - {mois_nom_courant} {st.session_state.annee}"
-)
 
 
 def estimer_distance(seance):
@@ -544,11 +547,9 @@ def estimer_distance(seance):
   if t in ["Footing", "Sortie longue", "Course"]:
     return float(d.get("distance", 0.0))
   elif t == "VMA":
-    ech_km = float(d.get("echauffement", 20)) / 5.0
-    return ech_km + 4.0
+    return float(d.get("echauffement", 20)) / 5.0 + 4.0
   elif t == "Seuil":
-    ech_km = float(d.get("echauffement", 20)) / 5.0
-    return ech_km + 6.0
+    return float(d.get("echauffement", 20)) / 5.0 + 6.0
   return 0.0
 
 
@@ -572,6 +573,7 @@ for (an, mo, j), seance in st.session_state.seances.items():
       nb_seances_mois += 1
       total_km_mois += estimer_distance(seance)
 
+# Affichage compact des métriques du mois
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("Km totaux", f"{total_km_mois:.1f} km")
 m2.metric("Séances", f"{nb_seances_mois}")
@@ -580,33 +582,23 @@ m4.metric("Sorties long.", f"{compteur_types['Sortie longue']}")
 m5.metric("Courses 🏁", f"{compteur_types['Course']}")
 m6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
 
-# --- SYNTHÈSE HEBDOMADAIRE ---
-st.markdown("#### 📅 Détail par Semaine")
+# Graphique de volume hebdomadaire condensé
 data_hebdo = []
 for idx_sem, semaine in enumerate(mois_cal):
   km_semaine = 0.0
-  seances_semaine = 0
-  for jour in semaine:
-    if jour != 0:
-      cle = (st.session_state.annee, st.session_state.mois, jour)
-      if cle in st.session_state.seances:
-        s = st.session_state.seances[cle]
-        if s["type"] != "Repos":
-          seances_semaine += 1
-          km_semaine += estimer_distance(s)
+  for date_j in semaine:
+    cle = (date_j.year, date_j.month, date_j.day)
+    if cle in st.session_state.seances:
+      s = st.session_state.seances[cle]
+      if s["type"] != "Repos":
+        km_semaine += estimer_distance(s)
 
-  jours_valides_semaine = [j for j in semaine if j != 0]
-  if jours_valides_semaine:
-    debut_s = jours_valides_semaine[0]
-    fin_s = jours_valides_semaine[-1]
-    data_hebdo.append({
-        "Semaine": (
-            f"Semaine {idx_sem + 1} (Du {debut_s} au {fin_s}"
-            f" {mois_nom_courant})"
-        ),
-        "Nombre de séances": seances_semaine,
-        "Volume estimé (km)": round(km_semaine, 1),
-    })
+  debut_s = semaine[0].strftime("%d/%m")
+  fin_s = semaine[-1].strftime("%d/%m")
+  data_hebdo.append({
+      "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
+      "Volume (km)": round(km_semaine, 1),
+  })
 
 df_hebdo = pd.DataFrame(data_hebdo)
-st.dataframe(df_hebdo, use_container_width=True)
+st.bar_chart(df_hebdo.set_index("Semaine"), color="#1f77b4", height=180)
