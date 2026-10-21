@@ -162,7 +162,7 @@ col_gauche, col_droite = st.columns([1.3, 1])
 
 
 # ==========================================
-# COLONNE GAUCHE : LE CALENDRIER COMPACT
+# COLONNE GAUCHE : LE CALENDRIER ET LE GRAPHIQUE
 # ==========================================
 with col_gauche:
   mois_nom_courant = mois_noms[st.session_state.mois]
@@ -191,7 +191,6 @@ with col_gauche:
 
         if cle in st.session_state.seances:
           s_type = st.session_state.seances[cle]["type"]
-          # Attribution propre des libellés complets sans rognage moche
           mapping_labels = {
               "Footing": f"J{j_jour}\n🏃 Footing",
               "Sortie longue": f"J{j_jour}\n🔥 Sortie L.",
@@ -252,9 +251,76 @@ with col_gauche:
         unsafe_allow_html=True,
     )
 
+  # --- GRAPHIQUE DU VOLUME HEBDOMADAIRE (EN BAS À GAUCHE) ---
+  st.markdown("---")
+  st.markdown("#### 📊 Volume hebdomadaire (km)")
+
+  def estimer_distance(seance):
+    t = seance["type"]
+    d = seance["details"]
+    if t in ["Footing", "Sortie longue", "Course"]:
+      return float(d.get("distance", 0.0))
+    elif t == "VMA":
+      return float(d.get("echauffement", 20)) / 5.0 + 4.0
+    elif t == "Seuil":
+      return float(d.get("echauffement", 20)) / 5.0 + 6.0
+    return 0.0
+
+  data_hebdo = []
+  for idx_sem, semaine in enumerate(mois_cal):
+    km_semaine = 0.0
+    for date_j in semaine:
+      cle = (date_j.year, date_j.month, date_j.day)
+      if cle in st.session_state.seances:
+        s = st.session_state.seances[cle]
+        if s["type"] != "Repos":
+          km_semaine += estimer_distance(s)
+
+    debut_s = semaine[0].strftime("%d/%m")
+    fin_s = semaine[-1].strftime("%d/%m")
+    data_hebdo.append({
+        "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
+        "Volume": round(km_semaine, 1),
+    })
+
+  df_hebdo = pd.DataFrame(data_hebdo)
+
+  import altair as alt
+
+  chart = (
+      alt.Chart(df_hebdo)
+      .mark_bar(
+          color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=35
+      )
+      .encode(
+          x=alt.X(
+              "Semaine:N",
+              sort=None,
+              title=None,
+              axis=alt.Axis(labelAngle=0, labelFontSize=11),
+          ),
+          y=alt.Y("Volume:Q", title="Km", axis=alt.Axis(grid=True)),
+      )
+  )
+
+  text = chart.mark_text(
+      align="center",
+      baseline="bottom",
+      dy=-5,
+      fontSize=12,
+      fontWeight="bold",
+      color="#1E293B",
+  ).encode(text=alt.Text("Volume:Q", format=".1f"))
+
+  final_chart = (
+      (chart + text).properties(height=170).configure_view(stroke=None)
+  )
+
+  st.altair_chart(final_chart, use_container_width=True)
+
 
 # ==========================================
-# COLONNE DROITE : FORMULAIRE DE SÉANCE
+# COLONNE DROITE : FORMULAIRE DE SÉANCE + BILAN MENSUEL COMPACT
 # ==========================================
 with col_droite:
   jour_sel = st.session_state.jour_selectionne
@@ -567,106 +633,41 @@ with col_droite:
           st.session_state.mode_edition = False
           st.rerun()
 
+  # ==========================================
+  # BILAN MENSUEL COMPACT (SOUS LE FORMULAIRE)
+  # ==========================================
+  st.markdown("---")
+  st.markdown(f"📈 **Bilan de {mois_nom_courant} {st.session_state.annee}**")
 
-# ==========================================
-# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE
-# ==========================================
-st.markdown("---")
+  total_km_mois = 0.0
+  nb_seances_mois = 0
+  compteur_types = {
+      "Footing": 0,
+      "Sortie longue": 0,
+      "Course": 0,
+      "VMA": 0,
+      "Seuil": 0,
+      "Renforcement musculaire": 0,
+      "Repos": 0,
+  }
 
+  for (an, mo, j), seance in st.session_state.seances.items():
+    if an == st.session_state.annee and mo == st.session_state.mois:
+      s_type = seance["type"]
+      if s_type in compteur_types:
+        compteur_types[s_type] += 1
+      if s_type != "Repos":
+        nb_seances_mois += 1
+        total_km_mois += estimer_distance(seance)
 
-def estimer_distance(seance):
-  t = seance["type"]
-  d = seance["details"]
-  if t in ["Footing", "Sortie longue", "Course"]:
-    return float(d.get("distance", 0.0))
-  elif t == "VMA":
-    return float(d.get("echauffement", 20)) / 5.0 + 4.0
-  elif t == "Seuil":
-    return float(d.get("echauffement", 20)) / 5.0 + 6.0
-  return 0.0
+  # Affichage en deux petites lignes de métriques compactes
+  b1, b2, b3 = st.columns(3)
+  b1.metric("Km totaux", f"{total_km_mois:.1f} km")
+  b2.metric("Séances", f"{nb_seances_mois}")
+  b3.metric("Footings", f"{compteur_types['Footing']}")
 
-
-total_km_mois = 0.0
-nb_seances_mois = 0
-compteur_types = {
-    "Footing": 0,
-    "Sortie longue": 0,
-    "Course": 0,
-    "VMA": 0,
-    "Seuil": 0,
-    "Renforcement musculaire": 0,
-    "Repos": 0,
-}
-
-for (an, mo, j), seance in st.session_state.seances.items():
-  if an == st.session_state.annee and mo == st.session_state.mois:
-    s_type = seance["type"]
-    if s_type in compteur_types:
-      compteur_types[s_type] += 1
-    if s_type != "Repos":
-      nb_seances_mois += 1
-      total_km_mois += estimer_distance(seance)
-
-# Affichage des métriques du mois
-m1, m2, m3, m4, m5, m6 = st.columns(6)
-m1.metric("Km totaux", f"{total_km_mois:.1f} km")
-m2.metric("Séances", f"{nb_seances_mois}")
-m3.metric("Footings", f"{compteur_types['Footing']}")
-m4.metric("Sorties long.", f"{compteur_types['Sortie longue']}")
-m5.metric("Courses 🏁", f"{compteur_types['Course']}")
-m6.metric("Renfo. / VMA", f"{compteur_types['Renforcement musculaire'] + compteur_types['VMA']}")
-
-# --- GRAPHIQUE HAUTE VISIBILITÉ (ALTAIR) ---
-st.markdown("#### 📊 Volume hebdomadaire (km)")
-
-data_hebdo = []
-for idx_sem, semaine in enumerate(mois_cal):
-  km_semaine = 0.0
-  for date_j in semaine:
-    cle = (date_j.year, date_j.month, date_j.day)
-    if cle in st.session_state.seances:
-      s = st.session_state.seances[cle]
-      if s["type"] != "Repos":
-        km_semaine += estimer_distance(s)
-
-  debut_s = semaine[0].strftime("%d/%m")
-  fin_s = semaine[-1].strftime("%d/%m")
-  data_hebdo.append({
-      "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
-      "Volume": round(km_semaine, 1),
-  })
-
-df_hebdo = pd.DataFrame(data_hebdo)
-
-import altair as alt
-
-chart = (
-    alt.Chart(df_hebdo)
-    .mark_bar(
-        color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=40
-    )
-    .encode(
-        x=alt.X(
-            "Semaine:N",
-            sort=None,
-            title=None,
-            axis=alt.Axis(labelAngle=0, labelFontSize=12),
-        ),
-        y=alt.Y("Volume:Q", title="Kilomètres (km)", axis=alt.Axis(grid=True)),
-    )
-)
-
-text = chart.mark_text(
-    align="center",
-    baseline="bottom",
-    dy=-6,
-    fontSize=13,
-    fontWeight="bold",
-    color="#1E293B",
-).encode(text=alt.Text("Volume:Q", format=".1f"))
-
-final_chart = (
-    (chart + text).properties(height=210).configure_view(stroke=None)
-)
-
-st.altair_chart(final_chart, use_container_width=True)
+  b4, b5, b6, b7 = st.columns(4)
+  b4.metric("Sorties L.", f"{compteur_types['Sortie longue']}")
+  b5.metric("Courses", f"{compteur_types['Course']}")
+  b6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
+  b7.metric("Renfo.", f"{compteur_types['Renforcement musculaire']}")
