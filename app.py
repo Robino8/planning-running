@@ -255,6 +255,7 @@ with col_gauche:
   st.markdown("---")
   st.markdown("#### 📊 Volume hebdomadaire (km)")
 
+
   def estimer_distance(seance):
     t = seance["type"]
     d = seance["details"]
@@ -265,6 +266,7 @@ with col_gauche:
     elif t == "Seuil":
       return float(d.get("echauffement", 20)) / 5.0 + 6.0
     return 0.0
+
 
   data_hebdo = []
   for idx_sem, semaine in enumerate(mois_cal):
@@ -320,7 +322,7 @@ with col_gauche:
 
 
 # ==========================================
-# COLONNE DROITE : FORMULAIRE DE SÉANCE + BILAN MENSUEL COMPACT
+# COLONNE DROITE : FORMULAIRE DE SÉANCE + BILAN MENSUEL ENCADRÉ
 # ==========================================
 with col_droite:
   jour_sel = st.session_state.jour_selectionne
@@ -634,11 +636,8 @@ with col_droite:
           st.rerun()
 
   # ==========================================
-  # BILAN MENSUEL COMPACT (SOUS LE FORMULAIRE)
+  # BILAN MENSUEL ENCADRÉ (SOUS LE FORMULAIRE)
   # ==========================================
-  st.markdown("---")
-  st.markdown(f"📈 **Bilan de {mois_nom_courant} {st.session_state.annee}**")
-
   total_km_mois = 0.0
   nb_seances_mois = 0
   compteur_types = {
@@ -660,14 +659,46 @@ with col_droite:
         nb_seances_mois += 1
         total_km_mois += estimer_distance(seance)
 
-  # Affichage en deux petites lignes de métriques compactes
-  b1, b2, b3 = st.columns(3)
-  b1.metric("Km totaux", f"{total_km_mois:.1f} km")
-  b2.metric("Séances", f"{nb_seances_mois}")
-  b3.metric("Footings", f"{compteur_types['Footing']}")
+  vma_seuil_total = compteur_types["VMA"] + compteur_types["Seuil"]
 
-  b4, b5, b6, b7 = st.columns(4)
-  b4.metric("Sorties L.", f"{compteur_types['Sortie longue']}")
-  b5.metric("Courses", f"{compteur_types['Course']}")
-  b6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
-  b7.metric("Renfo.", f"{compteur_types['Renforcement musculaire']}")
+  # Carte HTML encadrée avec bordures et design épuré
+  st.markdown(
+      f"""
+    <div style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-weight: 700; font-size: 15px; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+            📈 Bilan mensuel : {mois_nom_courant} {st.session_state.annee}
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Km totaux</span>
+                <strong style="font-size: 15px; color: #0f172a;">{total_km_mois:.1f} km</strong>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Séances</span>
+                <strong style="font-size: 15px; color: #0f172a;">{nb_seances_mois}</strong>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Footings</span>
+                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Footing']}</strong>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Sorties long.</span>
+                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Sortie longue']}</strong>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Courses 🏁</span>
+                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Course']}</strong>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">VMA / Seuil</span>
+                <strong style="font-size: 15px; color: #0f172a;">{vma_seuil_total}</strong>
+            </div>
+        </div>
+        <div style="margin-top: 8px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+            <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Renforcement musculaire</span>
+            <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Renforcement musculaire']}</strong>
+        </div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
