@@ -4,6 +4,9 @@ import json
 import pandas as pd
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+import os
+
+FICHIER_SAUVEGARDE = "planning.json"
 
 # Configuration de la page
 st.set_page_config(
@@ -16,43 +19,37 @@ st.title("🏃‍♂️ Mon Planning d'Entraînement (Cloud ☁️)")
 # Établissement de la connexion
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+import os
 
-# Fonction pour charger les séances depuis Google Sheets
+FICHIER_SAUVEGARDE = "planning.json"
+
+
+# Fonction pour charger les séances depuis le fichier cloud
 def charger_seances():
-  try:
-    df = conn.read(worksheet="seances", ttl=0)
-    seances_dict = {}
-    if df is not None and not df.empty:
-      for _, row in df.iterrows():
-        # On s'assure que les données ne sont pas vides
-        if pd.notna(row["annee"]) and pd.notna(row["mois"]) and pd.notna(row["jour"]):
-          cle = (int(row["annee"]), int(row["mois"]), int(row["jour"]))
-          # Les détails sont stockés sous forme de texte JSON dans la cellule
-          try:
-            details_obj = json.loads(row["donnees"])
-          except:
-            details_obj = {"type": "Footing", "details": {}}
-          seances_dict[cle] = details_obj
-    return seances_dict
-  except Exception as e:
-    # Si le tableau est vide ou en cas de première lecture
-    return {}
+  if os.path.exists(FICHIER_SAUVEGARDE):
+    try:
+      with open(FICHIER_SAUVEGARDE, "r", encoding="utf-8") as f:
+        data_brute = json.load(f)
+        seances_dict = {}
+        for k, v in data_brute.items():
+          parts = k.split("-")
+          cle = (int(parts[0]), int(parts[1]), int(parts[2]))
+          seances_dict[cle] = v
+        return seances_dict
+    except:
+      return {}
+  return {}
 
 
-# Fonction pour sauvegarder toutes les séances dans Google Sheets
+# Fonction pour sauvegarder les séances dans le fichier cloud
 def sauvegarder_seances(seances_dict):
-  data_rows = []
+  data_brute = {}
   for (an, mo, j), seance_data in seances_dict.items():
-    data_rows.append({
-        "annee": int(an),
-        "mois": int(mo),
-        "jour": int(j),
-        "donnees": json.dumps(seance_data),
-    })
+    cle_str = f"{an}-{mo}-{j}"
+    data_brute[cle_str] = seance_data
 
-  df_new = pd.DataFrame(data_rows)
-  # Écriture dans la feuille 'seances' de ton Google Sheets
-  conn.update(worksheet="seances", data=df_new)
+  with open(FICHIER_SAUVEGARDE, "w", encoding="utf-8") as f:
+    json.dump(data_brute, f, ensure_ascii=False, indent=4)
 
 
 # --- INITIALISATION DE LA MÉMOIRE DE SESSION ---
