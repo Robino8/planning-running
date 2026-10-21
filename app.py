@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-# --- STYLE CSS POUR DES COULEURS PLUS VISIBLES ET UN ESPACE OPTIMISÉ ---
+# --- STYLE CSS POUR DES COULEURS VISIBLES ET UN ESPACE OPTIMISÉ ---
 st.markdown(
     """
     <style>
@@ -96,15 +96,12 @@ mois_noms = {
 
 # Couleurs pastel plus prononcées et contrastées
 couleurs_pastel = {
-    "Footing": {"bg": "#B3E5FC", "border": "#0288D1"},  # Bleu plus soutenu
-    "Sortie longue": {
-        "bg": "#FFE0B2",
-        "border": "#F57C00",
-    },  # Orange plus soutenu
-    "VMA": {"bg": "#E1BEE7", "border": "#8E24AA"},  # Violet plus soutenu
-    "Seuil": {"bg": "#C8E6C9", "border": "#388E3C"},  # Vert plus soutenu
-    "Course": {"bg": "#FFCDD2", "border": "#D32F2F"},  # Rouge plus soutenu
-    "Repos": {"bg": "#EEEEEE", "border": "#BDBDBD"},  # Gris neutre
+    "Footing": {"bg": "#B3E5FC", "border": "#0288D1"},
+    "Sortie longue": {"bg": "#FFE0B2", "border": "#F57C00"},
+    "VMA": {"bg": "#E1BEE7", "border": "#8E24AA"},
+    "Seuil": {"bg": "#C8E6C9", "border": "#388E3C"},
+    "Course": {"bg": "#FFCDD2", "border": "#D32F2F"},
+    "Repos": {"bg": "#EEEEEE", "border": "#BDBDBD"},
 }
 
 
@@ -224,7 +221,6 @@ with col_gauche:
           bg_color = "#FFFFFF" if est_mois_courant else "#F5F5F5"
           border_color = "#DDDDDD" if est_mois_courant else "#E0E0E0"
 
-        # Application de la bordure colorée visible
         st.markdown(
             f"""
             <div style="background-color: {bg_color}; opacity: {opacite}; padding: 1px; border-radius: 4px; border: 2px solid {border_color}; text-align: center; margin-bottom: -15px;">
@@ -550,7 +546,7 @@ with col_droite:
 
 
 # ==========================================
-# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE AVANCÉ
+# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE AMÉLIORÉ
 # ==========================================
 st.markdown("---")
 
@@ -596,7 +592,7 @@ m4.metric("Sorties long.", f"{compteur_types['Sortie longue']}")
 m5.metric("Courses 🏁", f"{compteur_types['Course']}")
 m6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
 
-# --- GRAPHIQUE COMPACT AVEC VALEURS AFFICHÉES SUR LES BARRES (ALTAIR) ---
+# --- GRAPHIQUE HAUTE VISIBILITÉ (ALTAIR) ---
 st.markdown("#### 📊 Volume hebdomadaire (km)")
 
 data_hebdo = []
@@ -618,28 +614,39 @@ for idx_sem, semaine in enumerate(mois_cal):
 
 df_hebdo = pd.DataFrame(data_hebdo)
 
-# Utilisation d'Altair pour afficher un graphique compact avec les étiquettes de valeurs intégrées
 import altair as alt
 
+# Graphique plus grand, avec une couleur dynamique et des étiquettes bien visibles
 chart = (
     alt.Chart(df_hebdo)
-    .mark_bar(color="#1f77b4", cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+    .mark_bar(
+        color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=40
+    )
     .encode(
-        x=alt.X("Semaine:N", sort=None, title=None),
-        y=alt.Y("Volume:Q", title="Km"),
+        x=alt.X(
+            "Semaine:N",
+            sort=None,
+            title=None,
+            axis=alt.Axis(labelAngle=0, labelFontSize=12),
+        ),
+        y=alt.Y("Volume:Q", title="Kilomètres (km)", axis=alt.Axis(grid=True)),
     )
 )
 
-# Ajout du texte des valeurs directement sur les barres
+# Étiquettes de valeurs plus grandes et bien positionnées au-dessus des barres
 text = chart.mark_text(
-    align="center", baseline="bottom", dy=-3, fontSize=11, fontWeight="bold"
+    align="center",
+    baseline="bottom",
+    dy=-6,
+    fontSize=13,
+    fontWeight="bold",
+    color="#1E293B",
 ).encode(text=alt.Text("Volume:Q", format=".1f"))
 
 final_chart = (
     (chart + text)
-    .properties(height=140)
+    .properties(height=210)  # Hauteur augmentée pour plus de visibilité
     .configure_view(stroke=None)
-    .configure_axis(grid=False)
 )
 
 st.altair_chart(final_chart, use_container_width=True)
