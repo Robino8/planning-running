@@ -5,20 +5,20 @@ import os
 import pandas as pd
 import streamlit as st
 
-# Configuration de la page en mode 'wide'
+# Configuration de la page en mode 'wide' pour profiter de l'espace sur 3 colonnes
 st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-# --- STYLE CSS POUR UN DESIGN OPTIMISÉ ---
+# --- STYLE CSS POUR UN DESIGN OPTIMISÉ SUR 3 COLONNES ---
 st.markdown(
     """
     <style>
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
     div.stButton > button {
         border-radius: 6px;
@@ -127,44 +127,49 @@ def mois_suivant():
   st.session_state.mode_edition = False
 
 
-# --- BARRE LATÉRALE (NAVIGATION) ---
-st.sidebar.header("Navigation")
-col_nav1, col_nav2 = st.sidebar.columns(2)
-with col_nav1:
-  if st.button("◀ Précéd", use_container_width=True):
-    mois_precedent()
-    st.rerun()
-with col_nav2:
-  if st.button("Suivant ▶", use_container_width=True):
-    mois_suivant()
-    st.rerun()
-
-st.sidebar.markdown("---")
-choix_mois_nom = st.sidebar.selectbox(
-    "Aller au mois",
-    list(mois_noms.values()),
-    index=st.session_state.mois - 1,
-)
-st.session_state.mois = [
-    k for k, v in mois_noms.items() if v == choix_mois_nom
-][0]
-st.session_state.annee = st.sidebar.number_input(
-    "Année",
-    min_value=2020,
-    max_value=2030,
-    value=st.session_state.annee,
-    step=1,
-)
-
-
-# --- MISE EN PAGE PRINCIPALE EN 2 COLONNES ---
-col_gauche, col_droite = st.columns([1.3, 1])
+# ==========================================
+# MISE EN PAGE EN 3 COLONNES
+# ==========================================
+col_nav, col_centre, col_droite = st.columns([0.8, 1.4, 1.3])
 
 
 # ==========================================
-# COLONNE GAUCHE : LE CALENDRIER ET LE GRAPHIQUE
+# 1. COLONNE GAUCHE : NAVIGATION (INCHANGÉE)
 # ==========================================
-with col_gauche:
+with col_nav:
+  st.header("Navigation")
+  col_n1, col_n2 = st.columns(2)
+  with col_n1:
+    if st.button("◀ Précéd", use_container_width=True):
+      mois_precedent()
+      st.rerun()
+  with col_n2:
+    if st.button("Suivant ▶", use_container_width=True):
+      mois_suivant()
+      st.rerun()
+
+  st.markdown("---")
+  choix_mois_nom = st.selectbox(
+      "Aller au mois",
+      list(mois_noms.values()),
+      index=st.session_state.mois - 1,
+  )
+  st.session_state.mois = [
+      k for k, v in mois_noms.items() if v == choix_mois_nom
+  ][0]
+  st.session_state.annee = st.number_input(
+      "Année",
+      min_value=2020,
+      max_value=2030,
+      value=st.session_state.annee,
+      step=1,
+  )
+
+
+# ==========================================
+# 2. COLONNE CENTRALE : LE PLANNING (CALENDRIER)
+# ==========================================
+with col_centre:
   mois_nom_courant = mois_noms[st.session_state.mois]
   st.subheader(f"📅 {mois_nom_courant} {st.session_state.annee}")
 
@@ -232,7 +237,7 @@ with col_gauche:
           st.session_state.mode_edition = False
           st.rerun()
 
-  # Légende compacte
+  # Légende compacte sous le calendrier
   st.markdown("")
   cols_leg = st.columns(7)
   legende_items = [
@@ -251,78 +256,9 @@ with col_gauche:
         unsafe_allow_html=True,
     )
 
-  # --- GRAPHIQUE DU VOLUME HEBDOMADAIRE (EN BAS À GAUCHE) ---
-  st.markdown("---")
-  st.markdown("#### 📊 Volume hebdomadaire (km)")
-
-
-  def estimer_distance(seance):
-    t = seance["type"]
-    d = seance["details"]
-    if t in ["Footing", "Sortie longue", "Course"]:
-      return float(d.get("distance", 0.0))
-    elif t == "VMA":
-      return float(d.get("echauffement", 20)) / 5.0 + 4.0
-    elif t == "Seuil":
-      return float(d.get("echauffement", 20)) / 5.0 + 6.0
-    return 0.0
-
-
-  data_hebdo = []
-  for idx_sem, semaine in enumerate(mois_cal):
-    km_semaine = 0.0
-    for date_j in semaine:
-      cle = (date_j.year, date_j.month, date_j.day)
-      if cle in st.session_state.seances:
-        s = st.session_state.seances[cle]
-        if s["type"] != "Repos":
-          km_semaine += estimer_distance(s)
-
-    debut_s = semaine[0].strftime("%d/%m")
-    fin_s = semaine[-1].strftime("%d/%m")
-    data_hebdo.append({
-        "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
-        "Volume": round(km_semaine, 1),
-    })
-
-  df_hebdo = pd.DataFrame(data_hebdo)
-
-  import altair as alt
-
-  chart = (
-      alt.Chart(df_hebdo)
-      .mark_bar(
-          color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=35
-      )
-      .encode(
-          x=alt.X(
-              "Semaine:N",
-              sort=None,
-              title=None,
-              axis=alt.Axis(labelAngle=0, labelFontSize=11),
-          ),
-          y=alt.Y("Volume:Q", title="Km", axis=alt.Axis(grid=True)),
-      )
-  )
-
-  text = chart.mark_text(
-      align="center",
-      baseline="bottom",
-      dy=-5,
-      fontSize=12,
-      fontWeight="bold",
-      color="#1E293B",
-  ).encode(text=alt.Text("Volume:Q", format=".1f"))
-
-  final_chart = (
-      (chart + text).properties(height=170).configure_view(stroke=None)
-  )
-
-  st.altair_chart(final_chart, use_container_width=True)
-
 
 # ==========================================
-# COLONNE DROITE : FORMULAIRE DE SÉANCE + BILAN MENSUEL ENCADRÉ
+# 3. COLONNE DROITE : FORMULAIRE + BILAN + GRAPHIQUE
 # ==========================================
 with col_droite:
   jour_sel = st.session_state.jour_selectionne
@@ -638,6 +574,18 @@ with col_droite:
   # ==========================================
   # BILAN MENSUEL ENCADRÉ (SOUS LE FORMULAIRE)
   # ==========================================
+  def estimer_distance(seance):
+    t = seance["type"]
+    d = seance["details"]
+    if t in ["Footing", "Sortie longue", "Course"]:
+      return float(d.get("distance", 0.0))
+    elif t == "VMA":
+      return float(d.get("echauffement", 20)) / 5.0 + 4.0
+    elif t == "Seuil":
+      return float(d.get("echauffement", 20)) / 5.0 + 6.0
+    return 0.0
+
+
   total_km_mois = 0.0
   nb_seances_mois = 0
   compteur_types = {
@@ -661,44 +609,101 @@ with col_droite:
 
   vma_seuil_total = compteur_types["VMA"] + compteur_types["Seuil"]
 
-  # Carte HTML encadrée avec bordures et design épuré
   st.markdown(
       f"""
-    <div style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <div style="font-weight: 700; font-size: 15px; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+    <div style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-top: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
             📈 Bilan mensuel : {mois_nom_courant} {st.session_state.annee}
         </div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Km totaux</span>
-                <strong style="font-size: 15px; color: #0f172a;">{total_km_mois:.1f} km</strong>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center;">
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Km totaux</span>
+                <strong style="font-size: 14px; color: #0f172a;">{total_km_mois:.1f} km</strong>
             </div>
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Séances</span>
-                <strong style="font-size: 15px; color: #0f172a;">{nb_seances_mois}</strong>
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Séances</span>
+                <strong style="font-size: 14px; color: #0f172a;">{nb_seances_mois}</strong>
             </div>
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Footings</span>
-                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Footing']}</strong>
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Footings</span>
+                <strong style="font-size: 14px; color: #0f172a;">{compteur_types['Footing']}</strong>
             </div>
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Sorties long.</span>
-                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Sortie longue']}</strong>
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Sorties long.</span>
+                <strong style="font-size: 14px; color: #0f172a;">{compteur_types['Sortie longue']}</strong>
             </div>
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Courses 🏁</span>
-                <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Course']}</strong>
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Courses 🏁</span>
+                <strong style="font-size: 14px; color: #0f172a;">{compteur_types['Course']}</strong>
             </div>
-            <div style="background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">VMA / Seuil</span>
-                <strong style="font-size: 15px; color: #0f172a;">{vma_seuil_total}</strong>
+            <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">VMA / Seuil</span>
+                <strong style="font-size: 14px; color: #0f172a;">{vma_seuil_total}</strong>
             </div>
         </div>
-        <div style="margin-top: 8px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
-            <span style="font-size: 10px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Renforcement musculaire</span>
-            <strong style="font-size: 15px; color: #0f172a;">{compteur_types['Renforcement musculaire']}</strong>
+        <div style="margin-top: 6px; background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+            <span style="font-size: 9px; color: #64748b; display: block; text-transform: uppercase; font-weight: 600;">Renforcement musculaire</span>
+            <strong style="font-size: 14px; color: #0f172a;">{compteur_types['Renforcement musculaire']}</strong>
         </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
+
+  # ==========================================
+  # GRAPHIQUE HEBDOMADAIRE (EN DESSOUS DU BILAN, À DROITE)
+  # ==========================================
+  st.markdown("---")
+  st.markdown("#### 📊 Volume hebdomadaire (km)")
+
+  data_hebdo = []
+  for idx_sem, semaine in enumerate(mois_cal):
+    km_semaine = 0.0
+    for date_j in semaine:
+      cle = (date_j.year, date_j.month, date_j.day)
+      if cle in st.session_state.seances:
+        s = st.session_state.seances[cle]
+        if s["type"] != "Repos":
+          km_semaine += estimer_distance(s)
+
+    debut_s = semaine[0].strftime("%d/%m")
+    fin_s = semaine[-1].strftime("%d/%m")
+    data_hebdo.append({
+        "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
+        "Volume": round(km_semaine, 1),
+    })
+
+  df_hebdo = pd.DataFrame(data_hebdo)
+
+  import altair as alt
+
+  chart = (
+      alt.Chart(df_hebdo)
+      .mark_bar(
+          color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=28
+      )
+      .encode(
+          x=alt.X(
+              "Semaine:N",
+              sort=None,
+              title=None,
+              axis=alt.Axis(labelAngle=0, labelFontSize=10),
+          ),
+          y=alt.Y("Volume:Q", title="Km", axis=alt.Axis(grid=True)),
+      )
+  )
+
+  text = chart.mark_text(
+      align="center",
+      baseline="bottom",
+      dy=-5,
+      fontSize=11,
+      fontWeight="bold",
+      color="#1E293B",
+  ).encode(text=alt.Text("Volume:Q", format=".1f"))
+
+  final_chart = (
+      (chart + text).properties(height=160).configure_view(stroke=None)
+  )
+
+  st.altair_chart(final_chart, use_container_width=True)
