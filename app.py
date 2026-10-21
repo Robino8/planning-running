@@ -1,22 +1,70 @@
 calendar_mod = __import__("calendar")
 from datetime import datetime
+import json
 import pandas as pd
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 
 # Configuration de la page
 st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-st.title("🏃‍♂️ Mon Planning d'Entraînement")
+st.title("🏃‍♂️ Mon Planning d'Entraînement (Cloud ☁️)")
 
-# --- INITIALISATION DE LA MÉMOIRE ---
+# --- CONNEXION GOOGLE SHEETS ---
+# Établissement de la connexion
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+
+# Fonction pour charger les séances depuis Google Sheets
+def charger_seances():
+  try:
+    df = conn.read(worksheet="seances", ttl=0)
+    seances_dict = {}
+    if df is not None and not df.empty:
+      for _, row in df.iterrows():
+        # On s'assure que les données ne sont pas vides
+        if pd.notna(row["annee"]) and pd.notna(row["mois"]) and pd.notna(row["jour"]):
+          cle = (int(row["annee"]), int(row["mois"]), int(row["jour"]))
+          # Les détails sont stockés sous forme de texte JSON dans la cellule
+          try:
+            details_obj = json.loads(row["donnees"])
+          except:
+            details_obj = {"type": "Footing", "details": {}}
+          seances_dict[cle] = details_obj
+    return seances_dict
+  except Exception as e:
+    # Si le tableau est vide ou en cas de première lecture
+    return {}
+
+
+# Fonction pour sauvegarder toutes les séances dans Google Sheets
+def sauvegarder_seances(seances_dict):
+  data_rows = []
+  for (an, mo, j), seance_data in seances_dict.items():
+    data_rows.append({
+        "annee": int(an),
+        "mois": int(mo),
+        "jour": int(j),
+        "donnees": json.dumps(seance_data),
+    })
+
+  df_new = pd.DataFrame(data_rows)
+  # Écriture dans la feuille 'seances' de ton Google Sheets
+  conn.update(worksheet="seances", data=df_new)
+
+
+# --- INITIALISATION DE LA MÉMOIRE DE SESSION ---
 if "annee" not in st.session_state:
   st.session_state.annee = datetime.now().year
 if "mois" not in st.session_state:
   st.session_state.mois = datetime.now().month
+
+# On charge les séances depuis Google Sheets au démarrage ou rafraîchissement
 if "seances" not in st.session_state:
-  st.session_state.seances = {}
+  st.session_state.seances = charger_seances()
+
 if "jour_selectionne" not in st.session_state:
   st.session_state.jour_selectionne = 1
 if "mode_edition" not in st.session_state:
@@ -37,14 +85,13 @@ mois_noms = {
     12: "Décembre",
 }
 
-# Dictionnaire des couleurs pastel par type de séance
 couleurs_pastel = {
-    "Footing": "#E1F5FE",  # Bleu clair
-    "Sortie longue": "#FFE0B2",  # Orange clair
-    "VMA": "#F3E5F5",  # Violet clair
-    "Seuil": "#E8F5E9",  # Vert clair
-    "Course": "#FFEBEE",  # Rouge clair
-    "Repos": "#F5F5F5",  # Gris clair
+    "Footing": "#E1F5FE",
+    "Sortie longue": "#FFE0B2",
+    "VMA": "#F3E5F5",
+    "Seuil": "#E8F5E9",
+    "Course": "#FFEBEE",
+    "Repos": "#F5F5F5",
 }
 
 
@@ -69,7 +116,7 @@ def mois_suivant():
   st.session_state.mode_edition = False
 
 
-# --- BARRE LATÉRALE (NAVIGATION) ---
+# --- BARRE LATÉRALE ---
 st.sidebar.header("Navigation")
 col1, col2 = st.sidebar.columns(2)
 with col1:
@@ -98,26 +145,29 @@ st.session_state.annee = st.sidebar.number_input(
     step=1,
 )
 
+# Bouton optionnel pour forcer le rechargement depuis Google Sheets
+if st.sidebar.button("🔄 Actualiser les données"):
+  st.session_state.seances = charger_seances()
+  st.rerun()
 
-# --- AFFICHAGE DU CALENDRIER INTERACTIF ---
+
+# --- CALENDRIER INTERACTIF ---
 mois_nom_courant = mois_noms[st.session_state.mois]
 st.subheader(f"Planning de {mois_nom_courant} {st.session_state.annee}")
 st.info(
-    "💡 Clique sur un jour ci-dessous pour voir ou modifier sa séance. Les"
-    " couleurs indiquent le type de séance."
+    "💡 Clique sur un jour ci-dessous pour voir ou modifier sa séance."
+    " Synchronisé en direct avec le Cloud ☁️"
 )
 
-cal = calendar_mod.Calendar(firstweekday=0)  # Lundi = 0
+cal = calendar_mod.Calendar(firstweekday=0)
 mois_cal = cal.monthdayscalendar(st.session_state.annee, st.session_state.mois)
 
 jours_semaine = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
-# Affichage des en-têtes des jours de la semaine
 cols_entetes = st.columns(7)
 for i, j_nom in enumerate(jours_semaine):
   cols_entetes[i].markdown(f"**{j_nom}**")
 
-# Affichage des semaines
 for semaine in mois_cal:
   cols_semaine = st.columns(7)
   for i, jour in enumerate(semaine):
@@ -126,8 +176,6 @@ for semaine in mois_cal:
         st.markdown("")
       else:
         cle = (st.session_state.annee, st.session_state.mois, jour)
-
-        # Détermination du texte et de la couleur du bouton
         if cle in st.session_state.seances:
           s_type = st.session_state.seances[cle]["type"]
           icone = (
@@ -150,13 +198,11 @@ for semaine in mois_cal:
             label_btn = f"J{jour} : {nom_c}"
           else:
             label_btn = f"J{jour} : {s_type}"
-
           bg_color = couleurs_pastel.get(s_type, "#FFFFFF")
         else:
           label_btn = f"J{jour} (-)"
           bg_color = "#FFFFFF"
 
-        # Application propre de la couleur via un bloc HTML stylisé englobant le bouton
         st.markdown(
             f"""
             <div style="background-color: {bg_color}; padding: 4px; border-radius: 6px; border: 1px solid #ddd; text-align: center; margin-bottom: -15px;">
@@ -170,7 +216,7 @@ for semaine in mois_cal:
           st.session_state.mode_edition = False
           st.rerun()
 
-# --- LÉGENDE DES COULEURS ---
+# Légende
 st.markdown("---")
 cols_leg = st.columns(6)
 idx = 0
@@ -184,7 +230,7 @@ for s_type, col in couleurs_pastel.items():
   idx += 1
 
 
-# --- SECTION : CONSULTATION / GESTION DU JOUR SÉLECTIONNÉ ---
+# --- FORMULAIRE / GESTION DU JOUR SÉLECTIONNÉ ---
 st.markdown("---")
 jour_sel = st.session_state.jour_selectionne
 cle_actuelle = (st.session_state.annee, st.session_state.mois, jour_sel)
@@ -256,6 +302,7 @@ if existe_deja and not st.session_state.mode_edition:
   with col_act2:
     if st.button("🗑️ Supprimer cette séance", use_container_width=True):
       del st.session_state.seances[cle_actuelle]
+      sauvegarder_seances(st.session_state.seances)
       st.warning(f"Séance du {jour_sel} {mois_nom_courant} supprimée.")
       st.rerun()
 
@@ -474,6 +521,8 @@ else:
             "type": type_seance,
             "details": details,
         }
+        # ENREGISTREMENT DANS GOOGLE SHEETS
+        sauvegarder_seances(st.session_state.seances)
         st.session_state.mode_edition = False
         st.success(f"Séance du {jour_sel} {mois_nom_courant} enregistrée !")
         st.rerun()
