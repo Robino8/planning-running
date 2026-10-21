@@ -5,27 +5,24 @@ import os
 import pandas as pd
 import streamlit as st
 
-# Configuration de la page en mode 'wide' pour profiter de toute la largeur
+# Configuration de la page en mode 'wide'
 st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-# --- STYLE CSS POUR UN CALENDRIER ULTRA-COMPACT ET SANS SCROLL ---
+# --- STYLE CSS POUR DES COULEURS PLUS VISIBLES ET UN ESPACE OPTIMISÉ ---
 st.markdown(
     """
     <style>
-    /* Réduction des marges globales de la page Streamlit pour grappiller de l'espace */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
     }
-    /* Boutons du calendrier réduits pour tenir sur un seul écran */
     div.stButton > button {
         border-radius: 6px;
-        font-weight: 500;
-        border: 1px solid rgba(0,0,0,0.15);
+        font-weight: 600;
         height: 52px !important;
         padding: 0px !important;
         font-size: 11px !important;
@@ -97,13 +94,17 @@ mois_noms = {
     12: "Décembre",
 }
 
+# Couleurs pastel plus prononcées et contrastées
 couleurs_pastel = {
-    "Footing": "#E1F5FE",
-    "Sortie longue": "#FFE0B2",
-    "VMA": "#F3E5F5",
-    "Seuil": "#E8F5E9",
-    "Course": "#FFEBEE",
-    "Repos": "#F5F5F5",
+    "Footing": {"bg": "#B3E5FC", "border": "#0288D1"},  # Bleu plus soutenu
+    "Sortie longue": {
+        "bg": "#FFE0B2",
+        "border": "#F57C00",
+    },  # Orange plus soutenu
+    "VMA": {"bg": "#E1BEE7", "border": "#8E24AA"},  # Violet plus soutenu
+    "Seuil": {"bg": "#C8E6C9", "border": "#388E3C"},  # Vert plus soutenu
+    "Course": {"bg": "#FFCDD2", "border": "#D32F2F"},  # Rouge plus soutenu
+    "Repos": {"bg": "#EEEEEE", "border": "#BDBDBD"},  # Gris neutre
 }
 
 
@@ -159,7 +160,6 @@ st.session_state.annee = st.sidebar.number_input(
 
 
 # --- MISE EN PAGE PRINCIPALE EN 2 COLONNES (SPLIT-SCREEN) ---
-# Colonne de gauche : Calendrier (60%) | Colonne de droite : Formulaire (40%)
 col_gauche, col_droite = st.columns([1.3, 1])
 
 
@@ -177,7 +177,10 @@ with col_gauche:
 
   cols_entetes = st.columns(7)
   for i, j_nom in enumerate(jours_semaine):
-    cols_entetes[i].markdown(f"<div style='text-align: center;'><b>{j_nom}</b></div>", unsafe_allow_html=True)
+    cols_entetes[i].markdown(
+        f"<div style='text-align: center;'><b>{j_nom}</b></div>",
+        unsafe_allow_html=True,
+    )
 
   for semaine in mois_cal:
     cols_semaine = st.columns(7)
@@ -203,46 +206,57 @@ with col_gauche:
                   )
               )
           )
-          if s_type == "Course" and st.session_state.seances[cle]["details"].get("nom_course"):
+          if s_type == "Course" and st.session_state.seances[cle]["details"].get(
+              "nom_course"
+          ):
             nom_c = st.session_state.seances[cle]["details"]["nom_course"]
             label_btn = f"J{j_jour}\n{icone} {nom_c[:6]}"
           else:
             label_btn = f"J{j_jour}\n{icone} {s_type[:4]}"
-          bg_color = couleurs_pastel.get(s_type, "#FFFFFF")
+
+          style_data = couleurs_pastel.get(
+              s_type, {"bg": "#FFFFFF", "border": "#CCCCCC"}
+          )
+          bg_color = style_data["bg"]
+          border_color = style_data["border"]
         else:
           label_btn = f"J{j_jour}\n(-)"
           bg_color = "#FFFFFF" if est_mois_courant else "#F5F5F5"
+          border_color = "#DDDDDD" if est_mois_courant else "#E0E0E0"
 
+        # Application de la bordure colorée visible
         st.markdown(
             f"""
-            <div style="background-color: {bg_color}; opacity: {opacite}; padding: 1px; border-radius: 4px; border: 1px solid #ddd; text-align: center; margin-bottom: -15px;">
+            <div style="background-color: {bg_color}; opacity: {opacite}; padding: 1px; border-radius: 4px; border: 2px solid {border_color}; text-align: center; margin-bottom: -15px;">
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        if st.button(label_btn, key=f"btn_date_{j_an}_{j_mo}_{j_jour}", use_container_width=True):
+        if st.button(
+            label_btn, key=f"btn_date_{j_an}_{j_mo}_{j_jour}", use_container_width=True
+        ):
           st.session_state.annee = j_an
           st.session_state.mois = j_mo
           st.session_state.jour_selectionne = j_jour
           st.session_state.mode_edition = False
           st.rerun()
 
-  # Légende compacte en dessous du calendrier
+  # Légende compacte
   st.markdown("")
   cols_leg = st.columns(6)
   legende_items = [
-      ("Footing", "#E1F5FE"),
-      ("Sortie L.", "#FFE0B2"),
-      ("Course", "#FFEBEE"),
-      ("VMA", "#F3E5F5"),
-      ("Seuil", "#E8F5E9"),
-      ("Repos", "#F5F5F5"),
+      ("Footing", couleurs_pastel["Footing"]["bg"]),
+      ("Sortie L.", couleurs_pastel["Sortie longue"]["bg"]),
+      ("Course", couleurs_pastel["Course"]["bg"]),
+      ("VMA", couleurs_pastel["VMA"]["bg"]),
+      ("Seuil", couleurs_pastel["Seuil"]["bg"]),
+      ("Repos", couleurs_pastel["Repos"]["bg"]),
   ]
   for idx, (s_type, col) in enumerate(legende_items):
     cols_leg[idx].markdown(
         f"<div style='background-color: {col}; padding: 2px; border-radius: 3px;"
-        f" text-align: center; border: 1px solid #ccc; font-size: 9px; font-weight: 500;'>{s_type}</div>",
+        f" text-align: center; border: 1px solid #999; font-size: 9px; font-weight: 600;'>{s_type}</div>",
         unsafe_allow_html=True,
     )
 
@@ -536,7 +550,7 @@ with col_droite:
 
 
 # ==========================================
-# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE
+# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE AVANCÉ
 # ==========================================
 st.markdown("---")
 
@@ -573,7 +587,7 @@ for (an, mo, j), seance in st.session_state.seances.items():
       nb_seances_mois += 1
       total_km_mois += estimer_distance(seance)
 
-# Affichage compact des métriques du mois
+# Affichage des métriques du mois
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("Km totaux", f"{total_km_mois:.1f} km")
 m2.metric("Séances", f"{nb_seances_mois}")
@@ -582,7 +596,9 @@ m4.metric("Sorties long.", f"{compteur_types['Sortie longue']}")
 m5.metric("Courses 🏁", f"{compteur_types['Course']}")
 m6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
 
-# Graphique de volume hebdomadaire condensé
+# --- GRAPHIQUE COMPACT AVEC VALEURS AFFICHÉES SUR LES BARRES (ALTAIR) ---
+st.markdown("#### 📊 Volume hebdomadaire (km)")
+
 data_hebdo = []
 for idx_sem, semaine in enumerate(mois_cal):
   km_semaine = 0.0
@@ -597,8 +613,33 @@ for idx_sem, semaine in enumerate(mois_cal):
   fin_s = semaine[-1].strftime("%d/%m")
   data_hebdo.append({
       "Semaine": f"Sem. {idx_sem + 1} ({debut_s}-{fin_s})",
-      "Volume (km)": round(km_semaine, 1),
+      "Volume": round(km_semaine, 1),
   })
 
 df_hebdo = pd.DataFrame(data_hebdo)
-st.bar_chart(df_hebdo.set_index("Semaine"), color="#1f77b4", height=180)
+
+# Utilisation d'Altair pour afficher un graphique compact avec les étiquettes de valeurs intégrées
+import altair as alt
+
+chart = (
+    alt.Chart(df_hebdo)
+    .mark_bar(color="#1f77b4", cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+    .encode(
+        x=alt.X("Semaine:N", sort=None, title=None),
+        y=alt.Y("Volume:Q", title="Km"),
+    )
+)
+
+# Ajout du texte des valeurs directement sur les barres
+text = chart.mark_text(
+    align="center", baseline="bottom", dy=-3, fontSize=11, fontWeight="bold"
+).encode(text=alt.Text("Volume:Q", format=".1f"))
+
+final_chart = (
+    (chart + text)
+    .properties(height=140)
+    .configure_view(stroke=None)
+    .configure_axis(grid=False)
+)
+
+st.altair_chart(final_chart, use_container_width=True)
