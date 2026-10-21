@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-# --- STYLE CSS POUR DES COULEURS VISIBLES ET UN ESPACE OPTIMISÉ ---
+# --- STYLE CSS POUR UN DESIGN OPTIMISÉ ---
 st.markdown(
     """
     <style>
@@ -94,13 +94,14 @@ mois_noms = {
     12: "Décembre",
 }
 
-# Couleurs pastel plus prononcées et contrastées
+# Couleurs pastel distinctes avec bordures marquées
 couleurs_pastel = {
     "Footing": {"bg": "#B3E5FC", "border": "#0288D1"},
     "Sortie longue": {"bg": "#FFE0B2", "border": "#F57C00"},
     "VMA": {"bg": "#E1BEE7", "border": "#8E24AA"},
     "Seuil": {"bg": "#C8E6C9", "border": "#388E3C"},
     "Course": {"bg": "#FFCDD2", "border": "#D32F2F"},
+    "Renforcement musculaire": {"bg": "#FFF9C4", "border": "#FBC02D"},
     "Repos": {"bg": "#EEEEEE", "border": "#BDBDBD"},
 }
 
@@ -156,7 +157,7 @@ st.session_state.annee = st.sidebar.number_input(
 )
 
 
-# --- MISE EN PAGE PRINCIPALE EN 2 COLONNES (SPLIT-SCREEN) ---
+# --- MISE EN PAGE PRINCIPALE EN 2 COLONNES ---
 col_gauche, col_droite = st.columns([1.3, 1])
 
 
@@ -190,26 +191,20 @@ with col_gauche:
 
         if cle in st.session_state.seances:
           s_type = st.session_state.seances[cle]["type"]
-          icone = (
-              "🏃"
-              if s_type == "Footing"
-              else (
-                  "🔥"
-                  if s_type == "Sortie longue"
-                  else (
-                      "⚡"
-                      if s_type == "VMA"
-                      else "⏱️" if s_type == "Seuil" else "🏁" if s_type == "Course" else "🛋️"
-                  )
-              )
-          )
-          if s_type == "Course" and st.session_state.seances[cle]["details"].get(
-              "nom_course"
-          ):
-            nom_c = st.session_state.seances[cle]["details"]["nom_course"]
-            label_btn = f"J{j_jour}\n{icone} {nom_c[:6]}"
-          else:
-            label_btn = f"J{j_jour}\n{icone} {s_type[:4]}"
+          # Attribution propre des libellés complets sans rognage moche
+          mapping_labels = {
+              "Footing": f"J{j_jour}\n🏃 Footing",
+              "Sortie longue": f"J{j_jour}\n🔥 Sortie L.",
+              "Course": (
+                  f"J{j_jour}\n🏁"
+                  f" {st.session_state.seances[cle]['details'].get('nom_course', 'Course')[:6]}"
+              ),
+              "VMA": f"J{j_jour}\n⚡ VMA",
+              "Seuil": f"J{j_jour}\n⏱️ Seuil",
+              "Renforcement musculaire": f"J{j_jour}\n🏋️ Renfo",
+              "Repos": f"J{j_jour}\n🛋️ Repos",
+          }
+          label_btn = mapping_labels.get(s_type, f"J{j_jour}\n{s_type}")
 
           style_data = couleurs_pastel.get(
               s_type, {"bg": "#FFFFFF", "border": "#CCCCCC"}
@@ -240,19 +235,20 @@ with col_gauche:
 
   # Légende compacte
   st.markdown("")
-  cols_leg = st.columns(6)
+  cols_leg = st.columns(7)
   legende_items = [
       ("Footing", couleurs_pastel["Footing"]["bg"]),
       ("Sortie L.", couleurs_pastel["Sortie longue"]["bg"]),
       ("Course", couleurs_pastel["Course"]["bg"]),
       ("VMA", couleurs_pastel["VMA"]["bg"]),
       ("Seuil", couleurs_pastel["Seuil"]["bg"]),
+      ("Renfo", couleurs_pastel["Renforcement musculaire"]["bg"]),
       ("Repos", couleurs_pastel["Repos"]["bg"]),
   ]
   for idx, (s_type, col) in enumerate(legende_items):
     cols_leg[idx].markdown(
         f"<div style='background-color: {col}; padding: 2px; border-radius: 3px;"
-        f" text-align: center; border: 1px solid #999; font-size: 9px; font-weight: 600;'>{s_type}</div>",
+        f" text-align: center; border: 1px solid #999; font-size: 8px; font-weight: 600;'>{s_type}</div>",
         unsafe_allow_html=True,
     )
 
@@ -319,6 +315,13 @@ with col_droite:
       c4.metric("Allure", f"{details.get('allure', '-')}")
       c5.metric("Récup", f"{details.get('recup', '-')}")
 
+    elif s_type == "Renforcement musculaire":
+      c1, c2 = st.columns(2)
+      c1.metric("Zone", f"{details.get('zone', '-')}")
+      c2.metric("Durée", f"{details.get('duree', 0)} min")
+      if details.get("commentaire"):
+        st.info(f"💬 {details.get('commentaire')}")
+
     else:
       st.info("Jour de repos complet 🛋️")
 
@@ -346,6 +349,7 @@ with col_droite:
         "Course",
         "VMA",
         "Seuil",
+        "Renforcement musculaire",
         "Repos",
     ]
     type_index = (
@@ -522,6 +526,25 @@ with col_droite:
           key="seu_rec",
       )
 
+    elif type_seance == "Renforcement musculaire":
+      details["zone"] = st.text_input(
+          "Zone ciblée",
+          value=seance_existante["details"].get("zone", "Jambes / Abdos"),
+          key="rm_zone",
+      )
+      details["duree"] = st.number_input(
+          "Durée (min)",
+          min_value=0,
+          value=int(seance_existante["details"].get("duree", 30)),
+          step=5,
+          key="rm_dur",
+      )
+      details["commentaire"] = st.text_input(
+          "Commentaire",
+          value=seance_existante["details"].get("commentaire", ""),
+          key="rm_comm",
+      )
+
     else:
       st.info("Repos complet.")
 
@@ -546,7 +569,7 @@ with col_droite:
 
 
 # ==========================================
-# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE AMÉLIORÉ
+# SECTION BASSE : SYNTHÈSES ET GRAPHIQUE
 # ==========================================
 st.markdown("---")
 
@@ -571,6 +594,7 @@ compteur_types = {
     "Course": 0,
     "VMA": 0,
     "Seuil": 0,
+    "Renforcement musculaire": 0,
     "Repos": 0,
 }
 
@@ -590,7 +614,7 @@ m2.metric("Séances", f"{nb_seances_mois}")
 m3.metric("Footings", f"{compteur_types['Footing']}")
 m4.metric("Sorties long.", f"{compteur_types['Sortie longue']}")
 m5.metric("Courses 🏁", f"{compteur_types['Course']}")
-m6.metric("VMA / Seuil", f"{compteur_types['VMA'] + compteur_types['Seuil']}")
+m6.metric("Renfo. / VMA", f"{compteur_types['Renforcement musculaire'] + compteur_types['VMA']}")
 
 # --- GRAPHIQUE HAUTE VISIBILITÉ (ALTAIR) ---
 st.markdown("#### 📊 Volume hebdomadaire (km)")
@@ -616,7 +640,6 @@ df_hebdo = pd.DataFrame(data_hebdo)
 
 import altair as alt
 
-# Graphique plus grand, avec une couleur dynamique et des étiquettes bien visibles
 chart = (
     alt.Chart(df_hebdo)
     .mark_bar(
@@ -633,7 +656,6 @@ chart = (
     )
 )
 
-# Étiquettes de valeurs plus grandes et bien positionnées au-dessus des barres
 text = chart.mark_text(
     align="center",
     baseline="bottom",
@@ -644,9 +666,7 @@ text = chart.mark_text(
 ).encode(text=alt.Text("Volume:Q", format=".1f"))
 
 final_chart = (
-    (chart + text)
-    .properties(height=210)  # Hauteur augmentée pour plus de visibilité
-    .configure_view(stroke=None)
+    (chart + text).properties(height=210).configure_view(stroke=None)
 )
 
 st.altair_chart(final_chart, use_container_width=True)
