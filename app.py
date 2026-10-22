@@ -33,10 +33,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🏃‍♂️ Mon Planning d'Entraînement")
+st.title("🏃‍♂️ Mon Planning d'Entraînement Partagé")
 
 
-# --- GESTION DES DONNÉES PAR UTILISATEUR (FICHIERS JSON SÉPARÉS) ---
+# --- GESTION DES DONNÉES PAR UTILISATEUR ---
 def obtenir_fichier_sauvegarde():
   profil = st.session_state.get("profil", "Robin")
   if profil == "Mathilde":
@@ -81,7 +81,6 @@ if "annee" not in st.session_state:
 if "mois" not in st.session_state:
   st.session_state.mois = datetime.now().month
 
-# Charger les séances du profil actif
 if "seances" not in st.session_state:
   st.session_state.seances = charger_seances()
 
@@ -105,7 +104,6 @@ mois_noms = {
     12: "Décembre",
 }
 
-# Couleurs pastel distinctes avec bordures marquées
 couleurs_pastel = {
     "Footing": {"bg": "#B3E5FC", "border": "#0288D1"},
     "Sortie longue": {"bg": "#FFE0B2", "border": "#F57C00"},
@@ -153,7 +151,6 @@ with col_nav:
       "Choisir le planning", ["Robin", "Mathilde"], key="select_profil"
   )
 
-  # Si on change de profil, on recharge les données associées
   if nouveau_profil != st.session_state.profil:
     st.session_state.profil = nouveau_profil
     st.session_state.seances = charger_seances()
@@ -195,9 +192,31 @@ with col_nav:
 # ==========================================
 with col_centre:
   mois_nom_courant = mois_noms[st.session_state.mois]
-  st.subheader(
-      f"📅 {mois_nom_courant} {st.session_state.annee} ({st.session_state.profil})"
+
+  # --- BANDEAU VISIBLE DE PROFIL ---
+  if st.session_state.profil == "Robin":
+    couleur_bandeau = "#E0F2FE"  # Bleu clair
+    bordure_bandeau = "#0288D1"
+    texte_couleur = "#0369A1"
+    icone_profil = "🧢"
+  else:
+    couleur_bandeau = "#FCE7F3"  # Rose / Violet clair
+    bordure_bandeau = "#DB2777"
+    texte_couleur = "#BE185D"
+    icone_profil = "🌸"
+
+  st.markdown(
+      f"""
+    <div style="background-color: {couleur_bandeau}; border: 2px solid {bordure_bandeau}; border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 12px;">
+        <span style="font-size: 16px; font-weight: 700; color: {texte_couleur};">
+            {icone_profil} Planning d'entraînement de {st.session_state.profil}
+        </span>
+    </div>
+    """,
+      unsafe_allow_html=True,
   )
+
+  st.subheader(f"📅 {mois_nom_courant} {st.session_state.annee}")
 
   cal = calendar_mod.Calendar(firstweekday=0)
   mois_cal = cal.monthdatescalendar(st.session_state.annee, st.session_state.mois)
@@ -263,7 +282,7 @@ with col_centre:
           st.session_state.mode_edition = False
           st.rerun()
 
-  # Légende compacte sous le calendrier
+  # Légende compacte
   st.markdown("")
   cols_leg = st.columns(7)
   legende_items = [
@@ -593,7 +612,7 @@ with col_droite:
 
     with col_b2:
       if existe_deja:
-        if st.button("❌ Annuler", use_container_width=True):
+        if st.button("❌ Annuler", use_control_width=True if "use_control_width" in dir(st) else True, use_container_width=True):
           st.session_state.mode_edition = False
           st.rerun()
 
