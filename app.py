@@ -193,14 +193,13 @@ with col_nav:
 with col_centre:
   mois_nom_courant = mois_noms[st.session_state.mois]
 
-  # --- BANDEAU VISIBLE DE PROFIL ---
   if st.session_state.profil == "Robin":
-    couleur_bandeau = "#E0F2FE"  # Bleu clair
+    couleur_bandeau = "#E0F2FE"
     bordure_bandeau = "#0288D1"
     texte_couleur = "#0369A1"
     icone_profil = "🧢"
   else:
-    couleur_bandeau = "#FCE7F3"  # Rose / Violet clair
+    couleur_bandeau = "#FCE7F3"
     bordure_bandeau = "#DB2777"
     texte_couleur = "#BE185D"
     icone_profil = "🌸"
@@ -241,19 +240,24 @@ with col_centre:
 
         if cle in st.session_state.seances:
           s_type = st.session_state.seances[cle]["type"]
+          s_realise = (
+              " ✅"
+              if st.session_state.seances[cle].get("realise", False)
+              else ""
+          )
           mapping_labels = {
-              "Footing": f"J{j_jour}\n🏃 Footing",
-              "Sortie longue": f"J{j_jour}\n🔥 Sortie L.",
+              "Footing": f"J{j_jour}{s_realise}\n🏃 Footing",
+              "Sortie longue": f"J{j_jour}{s_realise}\n🔥 Sortie L.",
               "Course": (
-                  f"J{j_jour}\n🏁"
+                  f"J{j_jour}{s_realise}\n🏁"
                   f" {st.session_state.seances[cle]['details'].get('nom_course', 'Course')[:6]}"
               ),
-              "VMA": f"J{j_jour}\n⚡ VMA",
-              "Seuil": f"J{j_jour}\n⏱️ Seuil",
-              "Renforcement musculaire": f"J{j_jour}\n🏋️ Renfo",
-              "Repos": f"J{j_jour}\n🛋️ Repos",
+              "VMA": f"J{j_jour}{s_realise}\n⚡ VMA",
+              "Seuil": f"J{j_jour}{s_realise}\n⏱️ Seuil",
+              "Renforcement musculaire": f"J{j_jour}{s_realise}\n🏋️ Renfo",
+              "Repos": f"J{j_jour}{s_realise}\n🛋️ Repos",
           }
-          label_btn = mapping_labels.get(s_type, f"J{j_jour}\n{s_type}")
+          label_btn = mapping_labels.get(s_type, f"J{j_jour}{s_realise}\n{s_type}")
 
           style_data = couleurs_pastel.get(
               s_type, {"bg": "#FFFFFF", "border": "#CCCCCC"}
@@ -282,7 +286,6 @@ with col_centre:
           st.session_state.mode_edition = False
           st.rerun()
 
-  # Légende compacte
   st.markdown("")
   cols_leg = st.columns(7)
   legende_items = [
@@ -318,9 +321,11 @@ with col_droite:
 
   if existe_deja and not st.session_state.mode_edition:
     s_type = seance_actuelle["type"]
+    s_realise_bool = seance_actuelle.get("realise", False)
     details = seance_actuelle["details"]
 
-    st.markdown(f"**Type : {s_type}**")
+    statut_str = "✅ Réalisée" if s_realise_bool else "⏳ Prévisionnelle"
+    st.markdown(f"**Type : {s_type}** — *{statut_str}*")
 
     if s_type == "Footing":
       c1, c2, c3 = st.columns(3)
@@ -390,6 +395,13 @@ with col_droite:
   else:
     seance_existante = (
         seance_actuelle if existe_deja else {"type": "Footing", "details": {}}
+    )
+
+    realise_defaut = (
+        seance_actuelle.get("realise", False) if existe_deja else False
+    )
+    est_realise = st.checkbox(
+        "Séance réalisée ✅", value=realise_defaut, key="chk_realise"
     )
 
     types_seances = [
@@ -603,6 +615,7 @@ with col_droite:
       if st.button("💾 Enregistrer", type="primary", use_container_width=True):
         st.session_state.seances[cle_actuelle] = {
             "type": type_seance,
+            "realise": est_realise,
             "details": details,
         }
         sauvegarder_seances(st.session_state.seances)
@@ -612,7 +625,7 @@ with col_droite:
 
     with col_b2:
       if existe_deja:
-        if st.button("❌ Annuler", use_control_width=True if "use_control_width" in dir(st) else True, use_container_width=True):
+        if st.button("❌ Annuler", use_container_width=True):
           st.session_state.mode_edition = False
           st.rerun()
 
@@ -657,7 +670,7 @@ with col_droite:
   st.markdown(
       f"""
     <div style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-top: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <div style="font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+        <div style="font-weight: 700; font-size: 14px; color: {texte_couleur if 'texte_couleur' in locals() else '#1e293b'}; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
             📈 Bilan de {mois_nom_courant} ({st.session_state.profil})
         </div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center;">
