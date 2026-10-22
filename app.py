@@ -680,7 +680,7 @@ with col_droite:
   chart = (
       alt.Chart(df_hebdo)
       .mark_bar(
-          color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=28
+          color="#2B69EC", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=28
       )
       .encode(
           x=alt.X(
