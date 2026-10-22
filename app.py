@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import streamlit as st
 
-# Configuration de la page en mode 'wide' pour profiter de l'espace sur 3 colonnes
+# Configuration de la page en mode 'wide'
 st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
@@ -35,14 +35,20 @@ st.markdown(
 
 st.title("🏃‍♂️ Mon Planning d'Entraînement")
 
-FICHIER_SAUVEGARDE = "planning.json"
+
+# --- GESTION DES DONNÉES PAR UTILISATEUR (FICHIERS JSON SÉPARÉS) ---
+def obtenir_fichier_sauvegarde():
+  profil = st.session_state.get("profil", "Robin")
+  if profil == "Mathilde":
+    return "planning_mathilde.json"
+  return "planning_robin.json"
 
 
-# --- GESTION DES DONNÉES (JSON CLOUD) ---
 def charger_seances():
-  if os.path.exists(FICHIER_SAUVEGARDE):
+  fichier = obtenir_fichier_sauvegarde()
+  if os.path.exists(fichier):
     try:
-      with open(FICHIER_SAUVEGARDE, "r", encoding="utf-8") as f:
+      with open(fichier, "r", encoding="utf-8") as f:
         data_brute = json.load(f)
         seances_dict = {}
         for k, v in data_brute.items():
@@ -56,21 +62,26 @@ def charger_seances():
 
 
 def sauvegarder_seances(seances_dict):
+  fichier = obtenir_fichier_sauvegarde()
   data_brute = {}
   for (an, mo, j), seance_data in seances_dict.items():
     cle_str = f"{an}-{mo}-{j}"
     data_brute[cle_str] = seance_data
 
-  with open(FICHIER_SAUVEGARDE, "w", encoding="utf-8") as f:
+  with open(fichier, "w", encoding="utf-8") as f:
     json.dump(data_brute, f, ensure_ascii=False, indent=4)
 
 
 # --- INITIALISATION DE LA MÉMOIRE DE SESSION ---
+if "profil" not in st.session_state:
+  st.session_state.profil = "Robin"
+
 if "annee" not in st.session_state:
   st.session_state.annee = datetime.now().year
 if "mois" not in st.session_state:
   st.session_state.mois = datetime.now().month
 
+# Charger les séances du profil actif
 if "seances" not in st.session_state:
   st.session_state.seances = charger_seances()
 
@@ -134,9 +145,22 @@ col_nav, col_centre, col_droite = st.columns([0.8, 1.4, 1.3])
 
 
 # ==========================================
-# 1. COLONNE GAUCHE : NAVIGATION (INCHANGÉE)
+# 1. COLONNE GAUCHE : SÉLECTION DU PROFIL & NAVIGATION
 # ==========================================
 with col_nav:
+  st.header("Profil")
+  nouveau_profil = st.selectbox(
+      "Choisir le planning", ["Robin", "Mathilde"], key="select_profil"
+  )
+
+  # Si on change de profil, on recharge les données associées
+  if nouveau_profil != st.session_state.profil:
+    st.session_state.profil = nouveau_profil
+    st.session_state.seances = charger_seances()
+    st.session_state.mode_edition = False
+    st.rerun()
+
+  st.markdown("---")
   st.header("Navigation")
   col_n1, col_n2 = st.columns(2)
   with col_n1:
@@ -171,7 +195,9 @@ with col_nav:
 # ==========================================
 with col_centre:
   mois_nom_courant = mois_noms[st.session_state.mois]
-  st.subheader(f"📅 {mois_nom_courant} {st.session_state.annee}")
+  st.subheader(
+      f"📅 {mois_nom_courant} {st.session_state.annee} ({st.session_state.profil})"
+  )
 
   cal = calendar_mod.Calendar(firstweekday=0)
   mois_cal = cal.monthdatescalendar(st.session_state.annee, st.session_state.mois)
@@ -613,7 +639,7 @@ with col_droite:
       f"""
     <div style="background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-top: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <div style="font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
-            📈 Bilan mensuel : {mois_nom_courant} {st.session_state.annee}
+            📈 Bilan de {mois_nom_courant} ({st.session_state.profil})
         </div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center;">
             <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
@@ -680,7 +706,7 @@ with col_droite:
   chart = (
       alt.Chart(df_hebdo)
       .mark_bar(
-          color="#2B69EC", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=28
+          color="#2563EB", cornerRadiusTopLeft=6, cornerRadiusTopRight=6, width=28
       )
       .encode(
           x=alt.X(
