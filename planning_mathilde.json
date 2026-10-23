@@ -8,5 +8,15 @@
             "denivele": 200,
             "commentaire": "1h20"
         }
+    },
+    "2026-10-18": {
+        "type": "Course",
+        "realise": true,
+        "details": {
+            "nom_course": "Trail du Lison",
+            "distance": 12.5,
+            "denivele": 500,
+            "commentaire": ""
+        }
     }
 }
