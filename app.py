@@ -14,15 +14,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- STYLE CSS ADAPTATIF (PC & MOBILE) ---
-st.markdown("""
+# --- STYLE CSS ADAPTATIF (PC & MOBILE OPTIMISÉ) ---
+st.markdown(
+    """
     <style>
+    /* 1. Rapprochement des marges globales */
     .block-container {
         padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
+
+    /* 2. Boutons par défaut (PC) */
     div.stButton > button {
         border-radius: 6px;
         font-weight: 600;
@@ -32,20 +36,51 @@ st.markdown("""
         line-height: 1.1 !important;
     }
 
-    /* Adaptation mobile (écrans <= 768px) */
+    /* 3. ADAPTATION SPÉCIFIQUE MOBILE */
     @media (max-width: 768px) {
-        [data-testid="column"] {
+        /* Empiler uniquement les 3 colonnes principales de la page */
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3):last-child) > [data-testid="column"] {
             width: 100% !important;
             flex: 1 1 100% !important;
             min-width: 100% !important;
+            margin-bottom: 1.5rem;
         }
-        div.stButton > button {
-            height: 46px !important;
-            font-size: 12px !important;
+
+        /* Verrouiller les 7 colonnes du calendrier côte à côte */
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7)) {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 2px !important;
+        }
+
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7)) > [data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 1 0 !important;
+            width: calc(100% / 7) !important;
+            padding: 0 !important;
+        }
+
+        /* Réduction de la taille des boutons du calendrier pour écran tactile */
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7)) div.stButton > button {
+            height: 44px !important;
+            font-size: 9px !important;
+            padding: 1px !important;
+            border-radius: 4px;
+        }
+
+        /* Ajustement des en-têtes (Lun, Mar...) */
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7)) p {
+            font-size: 10px !important;
+            margin-bottom: 2px !important;
         }
     }
     </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
+
 
 st.title("🏃‍♂️ Planning d'Entraînement")
 
