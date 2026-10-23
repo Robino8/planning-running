@@ -1,1 +1,12 @@
-{}
+{
+    "2026-10-24": {
+        "type": "Course",
+        "realise": false,
+        "details": {
+            "nom_course": "Trail de Marchaux",
+            "distance": 10.0,
+            "denivele": 200,
+            "commentaire": "1h20"
+        }
+    }
+}
