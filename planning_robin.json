@@ -28,5 +28,15 @@
             "allure": "6:00",
             "commentaire": ""
         }
+    },
+    "2026-10-23": {
+        "type": "Footing",
+        "realise": false,
+        "details": {
+            "distance": 6.0,
+            "duree": 35,
+            "allure": "6:00",
+            "commentaire": ""
+        }
     }
 }
