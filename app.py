@@ -10,10 +10,11 @@ st.set_page_config(
     page_title="Mon Planning Running", page_icon="🏃‍♂️", layout="wide"
 )
 
-# --- STYLE CSS POUR UN DESIGN OPTIMISÉ SUR 3 COLONNES ---
+# --- STYLE CSS ADAPTATIF (PC & MOBILE) ---
 st.markdown(
     """
     <style>
+    /* Style général pour le PC */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
@@ -27,6 +28,21 @@ st.markdown(
         padding: 0px !important;
         font-size: 11px !important;
         line-height: 1.1 !important;
+    }
+
+    /* ADAPTATION MOBILE (Écrans de moins de 768px de large) */
+    @media (max-width: 768px) {
+        /* Les colonnes s'empilent verticalement au lieu de se tasser */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+        /* Ajustement des boutons sur portable pour le pouce */
+        div.stButton > button {
+            height: 44px !important;
+            font-size: 12px !important;
+        }
     }
     </style>
 """,
