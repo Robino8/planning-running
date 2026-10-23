@@ -47,7 +47,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🏃‍♂️ Mon Planning d'Entraînement Partagé")
+st.title("🏃‍♂️ Planning d'Entraînement")
 
 # --- CONFIGURATION API GITHUB POUR LA PERSISTANCE ---
 REPO_OWNER = "Robino8"
