@@ -38,5 +38,10 @@
             "allure": "6:00",
             "commentaire": ""
         }
+    },
+    "2026-10-26": {
+        "type": "Repos",
+        "realise": false,
+        "details": {}
     }
 }
