@@ -8,5 +8,15 @@
             "denivele": 200,
             "commentaire": "55 min"
         }
+    },
+    "2026-10-21": {
+        "type": "Footing",
+        "realise": true,
+        "details": {
+            "distance": 9.8,
+            "duree": 55,
+            "allure": "5:55",
+            "commentaire": ""
+        }
     }
 }
