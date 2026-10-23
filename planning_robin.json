@@ -31,7 +31,7 @@
     },
     "2026-10-23": {
         "type": "Footing",
-        "realise": false,
+        "realise": true,
         "details": {
             "distance": 6.0,
             "duree": 35,
